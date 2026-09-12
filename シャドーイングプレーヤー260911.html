@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英会話リスニング & シャドーイング プレーヤー (HQ Speech)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* Normal Active Line Style */
+        .active-line {
+            border-left: 6px solid #4f46e5;
+            background-color: #eef2ff !important;
+            transform: scale(1.005);
+            box-shadow: 0 4px 14px rgba(79, 70, 229, 0.12);
+        }
+        /* Single Line Repeat Mode Style */
+        .single-repeat-line {
+            border-left: 6px solid #d97706 !important;
+            background-color: #fffbeb !important;
+            box-shadow: 0 4px 16px rgba(217, 119, 6, 0.18);
+            transform: scale(1.01);
+        }
+        .speaker-a-badge {
+            background-color: #2563eb;
+            color: white;
+        }
+        .speaker-b-badge {
+            background-color: #059669;
+            color: white;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .fade-in {
+            animation: fadeIn 0.2s ease-in-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col justify-between">
+
+    <header class="bg-indigo-700 text-white shadow-lg sticky top-0 z-30">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="resetPlayback()">
+                <div class="w-10 h-10 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition">
+                    <i class="fa-solid fa-headphones-simple text-xl text-indigo-100"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg md:text-xl tracking-tight leading-none flex items-center gap-2">
+                        英会話リスニング & シャドーイング
+                        <span class="text-[10px] bg-amber-400 text-indigo-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider">HQ Sound</span>
+                    </h1>
+                    <span id="current-script-badge" class="text-xs text-indigo-200 font-medium">スクリプト: 戸隠トレラン＆230km挑戦</span>
+                </div>
+            </div>
+
+            <!-- Header Actions -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <!-- Script Selection Dropdown -->
+                <div class="relative">
+                    <select id="script-select" onchange="switchScript(this.value)" class="text-xs md:text-sm bg-indigo-800 text-white font-semibold px-3 py-1.5 pr-8 rounded-xl border border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-300 appearance-none cursor-pointer">
+                        <!-- Dynamically populated -->
+                    </select>
+                    <i class="fa-solid fa-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-indigo-200 pointer-events-none"></i>
+                </div>
+
+                <!-- Edit Script Title Button -->
+                <button id="btn-edit-script" onclick="openEditScriptModal()" class="text-xs md:text-sm bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1.5 rounded-xl transition font-bold flex items-center gap-1 shadow-sm border border-indigo-400" title="コンテンツ名・話者名を編集">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <span class="hidden sm:inline">編集</span>
+                </button>
+
+                <!-- Delete Script Button -->
+                <button id="btn-delete-script" onclick="openDeleteModal()" class="text-xs md:text-sm bg-rose-500 hover:bg-rose-600 text-white px-2.5 py-1.5 rounded-xl transition font-bold flex items-center gap-1 shadow-sm" title="現在のスクリプトを削除">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span class="hidden sm:inline">削除</span>
+                </button>
+
+                <!-- Add Script Button -->
+                <button onclick="openScriptModal()" class="text-xs md:text-sm bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl transition font-bold flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-plus"></i> <span>スクリプト追加</span>
+                </button>
+
+                <!-- Voice Settings Modal Button -->
+                <button onclick="openVoiceModal()" class="text-xs md:text-sm bg-indigo-600 hover:bg-indigo-800 text-white px-3 py-1.5 rounded-xl transition font-medium flex items-center gap-1.5 border border-indigo-400 relative">
+                    <i class="fa-solid fa-sliders"></i> <span class="hidden sm:inline">話者・音声・速度設定</span>
+                    <span id="speed-badge-text" class="text-[10px] bg-indigo-900 text-indigo-100 font-mono px-1.5 py-0.5 rounded ml-1">A:1.0x/B:1.0x</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-6 w-full flex-grow space-y-5">
+
+        <!-- Controller Sticky Player Card -->
+        <div class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 sm:p-5 sticky top-16 z-20 space-y-4">
+            
+            <!-- Playback Mode Banner -->
+            <div id="mode-status-banner" class="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-indigo-900 transition-all">
+                <div class="flex items-center gap-2">
+                    <i id="mode-icon" class="fa-solid fa-repeat text-indigo-600 text-sm"></i>
+                    <span id="mode-description">会話全体をループ再生中（行をクリックするとその行だけリピートします）</span>
+                </div>
+                <button id="mode-reset-btn" onclick="clearSingleRepeat()" class="hidden text-amber-700 hover:text-amber-900 font-bold bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-lg transition text-[11px] items-center gap-1">
+                    <i class="fa-solid fa-rotate-left"></i> 全体再生に戻す
+                </button>
+            </div>
+
+            <!-- Main Audio Controls Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+                
+                <!-- Action Buttons -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button id="btn-play" onclick="togglePlayPause()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md transition active:scale-95 flex items-center gap-2">
+                        <i id="play-icon" class="fa-solid fa-play"></i> <span id="play-text">最初から再生</span>
+                    </button>
+
+                    <button onclick="stopPlayback()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition flex items-center gap-1.5" title="停止">
+                        <i class="fa-solid fa-square"></i> <span>停止</span>
+                    </button>
+
+                    <button onclick="resetPlayCounts()" class="px-3 py-2.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition border border-slate-200 flex items-center gap-1" title="再生カウントをリセット">
+                        <i class="fa-solid fa-rotate text-xs"></i> <span>カウントリセット</span>
+                    </button>
+                </div>
+
+                <!-- Display Options Toggles -->
+                <div class="flex items-center gap-3 text-xs font-semibold text-slate-600 flex-wrap">
+                    <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                        <input type="checkbox" id="toggle-ja" onchange="toggleJapaneseDisplay()" checked class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                        <span>日本語訳を表示</span>
+                    </label>
+
+                    <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                        <input type="checkbox" id="toggle-autoscroll" checked class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                        <span>自動スクロール</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div>
+                <div class="flex justify-between text-[11px] font-bold text-slate-400 mb-1">
+                    <span>進行状況</span>
+                    <span id="progress-indicator">行 0 / 0</span>
+                </div>
+                <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div id="progress-bar-fill" class="bg-indigo-600 h-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Conversation Script Display Area -->
+        <div id="script-container" class="space-y-3">
+            <!-- Dynamic Dialogue Cards render here -->
+        </div>
+
+    </main>
+
+    <div id="script-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden fade-in">
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-file-circle-plus text-indigo-600 text-xl"></i>
+                    <h3 class="font-bold text-slate-800 text-base md:text-lg">新しい対話スクリプトを追加</h3>
+                </div>
+                <button onclick="closeScriptModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto space-y-4 text-sm text-slate-600 custom-scrollbar">
+                
+                <!-- File Import Drag & Drop Zone -->
+                <div id="file-drop-zone" class="border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/50 hover:bg-indigo-50 rounded-2xl p-4 text-center transition cursor-pointer group"
+                     onclick="document.getElementById('file-upload-input').click()"
+                     ondragover="event.preventDefault(); this.classList.add('border-indigo-500','bg-indigo-100/50');"
+                     ondragleave="this.classList.remove('border-indigo-500','bg-indigo-100/50');"
+                     ondrop="handleFileDrop(event)">
+                    <input type="file" id="file-upload-input" accept=".txt,.text,.csv" class="hidden" onchange="handleFileImport(event)">
+                    <div class="flex flex-col items-center justify-center space-y-1">
+                        <i class="fa-solid fa-cloud-arrow-up text-3xl text-indigo-500 group-hover:scale-110 transition-transform"></i>
+                        <p class="font-bold text-indigo-950 text-sm">テキストファイル (.txt) をドラッグ＆ドロップ または 選択</p>
+                        <p class="text-xs text-slate-500">ファイル内容からタイトル・話者名（Person A, Person B等）・対話文を全自動で分類します</p>
+                    </div>
+                </div>
+
+                <div id="file-import-msg" class="hidden bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3.5 py-2 rounded-xl flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
+                    <span id="file-import-msg-text">ファイルを読み込みました。</span>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">スクリプトのタイトル <span class="text-red-500">*</span></label>
+                    <input type="text" id="modal-script-title" placeholder="例: 空港でのチェックイン英会話" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">話者A の名前</label>
+                        <input type="text" id="modal-speaker-a" placeholder="例: Person A" value="Speaker A" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">話者B の名前</label>
+                        <input type="text" id="modal-speaker-b" placeholder="例: Person B" value="Speaker B" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block font-bold text-slate-700">対話テキストデータ <span class="text-red-500">*</span></label>
+                        <button onclick="insertSampleScriptText()" class="text-xs text-indigo-600 hover:text-indigo-800 font-bold underline">
+                            サンプル入力を挿入
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-2">フォーマット: 1行ずつ 「話者名: 英語本文」 または 「話者名: 英語本文 | 日本語訳」 の形式で入力してください。</p>
+                    <textarea id="modal-script-text" rows="8" placeholder="A: Hello, how are you? | こんにちは、お元気ですか？&#10;B: I am doing great! | とても元気ですよ！" class="w-full font-mono text-xs p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 leading-relaxed"></textarea>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                <button onclick="closeScriptModal()" class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-xl border border-slate-300 transition text-sm">
+                    キャンセル
+                </button>
+                <button onclick="saveCustomScript()" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition text-sm flex items-center gap-1.5">
+                    <i class="fa-solid fa-check"></i> スクリプトを登録
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="delete-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full p-6 space-y-4 fade-in">
+            <div class="flex items-center gap-3 text-rose-600">
+                <div class="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base">スクリプトの削除</h3>
+                    <p class="text-xs text-slate-500">この操作は取り消せません。</p>
+                </div>
+            </div>
+
+            <p id="delete-modal-msg" class="text-sm font-semibold text-slate-700">スクリプトを削除しますか？</p>
+
+            <div id="delete-error-notice" class="hidden text-xs bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl">
+                最後のスクリプト（またはデフォルトスクリプト）は削除できません。
+            </div>
+
+            <div class="flex justify-end items-center gap-2 pt-2 border-t border-slate-100">
+                <button onclick="closeDeleteModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+                    キャンセル
+                </button>
+                <button id="btn-confirm-delete" onclick="confirmDeleteCurrentScript()" class="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-trash-can"></i> 削除実行
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-script-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full p-6 space-y-4 fade-in">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-indigo-600 text-xl"></i>
+                    <h3 class="font-bold text-slate-800 text-base md:text-lg">コンテンツ情報の編集</h3>
+                </div>
+                <button onclick="closeEditScriptModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-sm text-slate-600">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">コンテンツ名 (タイトル) <span class="text-red-500">*</span></label>
+                    <input type="text" id="edit-modal-title" placeholder="コンテンツ名を入力" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">話者A の名前</label>
+                        <input type="text" id="edit-modal-speaker-a" placeholder="Speaker A" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 text-xs">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">話者B の名前</label>
+                        <input type="text" id="edit-modal-speaker-b" placeholder="Speaker B" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 text-xs">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end items-center gap-2 pt-3 border-t border-slate-100">
+                <button onclick="closeEditScriptModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+                    キャンセル
+                </button>
+                <button onclick="saveEditedScriptInfo()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-check"></i> 変更を保存
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="voice-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-lg w-full p-6 space-y-5 fade-in max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-indigo-600"></i> 話者別 音声・速度設定
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5">話者ごとに再生速度、音量、音声モデル、ピッチを設定できます。</p>
+                </div>
+                <button onclick="closeVoiceModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Global Quick Speed Controls -->
+            <div class="flex items-center justify-between text-xs bg-slate-100 p-2.5 rounded-xl border border-slate-200">
+                <span class="font-bold text-slate-700 text-[11px] flex items-center gap-1">
+                    <i class="fa-solid fa-bolt text-amber-500"></i> 一括スピード設定:
+                </span>
+                <div class="flex items-center gap-1.5">
+                    <button onclick="setMasterSpeed(0.75)" class="px-2 py-1 bg-white hover:bg-indigo-50 border border-slate-300 rounded-lg text-[10px] font-bold text-slate-700 transition shadow-sm">両方 0.75x</button>
+                    <button onclick="setMasterSpeed(1.0)" class="px-2 py-1 bg-white hover:bg-indigo-50 border border-slate-300 rounded-lg text-[10px] font-bold text-slate-700 transition shadow-sm">両方 1.0x</button>
+                    <button onclick="setMasterSpeed(1.25)" class="px-2 py-1 bg-white hover:bg-indigo-50 border border-slate-300 rounded-lg text-[10px] font-bold text-slate-700 transition shadow-sm">両方 1.25x</button>
+                </div>
+            </div>
+
+            <!-- Speaker A Config (Blue Theme) -->
+            <div class="bg-blue-50/70 border border-blue-200 p-4 rounded-xl space-y-3">
+                <div class="flex justify-between items-center">
+                    <span id="modal-speaker-a-title" class="font-bold text-xs text-blue-800 flex items-center gap-1.5">
+                        <i class="fa-solid fa-user text-blue-600"></i> 話者 A の設定
+                    </span>
+                    <button onclick="testVoice('A')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1 rounded-lg transition flex items-center gap-1 shadow-sm">
+                        <i class="fa-solid fa-volume-high text-[10px]"></i> 試聴する
+                    </button>
+                </div>
+
+                <!-- Voice Selection -->
+                <div>
+                    <label class="block text-[11px] font-semibold text-blue-900 mb-1">音声モデル</label>
+                    <select id="voice-select-a" onchange="onVoiceSelected('A')" class="w-full text-xs p-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+
+                <!-- Speed Control -->
+                <div class="space-y-1.5 pt-1">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-bold text-blue-900 flex items-center gap-1">
+                            <i class="fa-solid fa-gauge-high text-blue-500"></i> 再生速度:
+                        </span>
+                        <span id="speed-display-a" class="font-black text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200 shadow-sm font-mono text-[11px]">1.00x</span>
+                    </div>
+                    <div class="flex items-center gap-1 justify-between">
+                        <button onclick="setSpeedForSpeaker('A', 0.5)" class="speed-btn-a flex-1 py-0.5 text-[10px] font-bold rounded border transition border-blue-200 bg-white hover:bg-blue-100 text-blue-800" data-speed="0.5">0.5x</button>
+                        <button onclick="setSpeedForSpeaker('A', 0.75)" class="speed-btn-a flex-1 py-0.5 text-[10px] font-bold rounded border transition border-blue-200 bg-white hover:bg-blue-100 text-blue-800" data-speed="0.75">0.75x</button>
+                        <button onclick="setSpeedForSpeaker('A', 1.0)" class="speed-btn-a flex-1 py-0.5 text-[10px] font-bold rounded border transition border-blue-500 bg-blue-600 text-white" data-speed="1.0">1.0x</button>
+                        <button onclick="setSpeedForSpeaker('A', 1.25)" class="speed-btn-a flex-1 py-0.5 text-[10px] font-bold rounded border transition border-blue-200 bg-white hover:bg-blue-100 text-blue-800" data-speed="1.25">1.25x</button>
+                        <button onclick="setSpeedForSpeaker('A', 1.5)" class="speed-btn-a flex-1 py-0.5 text-[10px] font-bold rounded border transition border-blue-200 bg-white hover:bg-blue-100 text-blue-800" data-speed="1.5">1.5x</button>
+                    </div>
+                    <input type="range" id="speed-range-a" min="0.5" max="2.0" step="0.05" value="1.0" oninput="setSpeedForSpeaker('A', this.value)" class="w-full h-1.5 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </div>
+
+                <!-- Volume & Pitch Sliders in 2 Columns -->
+                <div class="grid grid-cols-2 gap-3 pt-1 border-t border-blue-200/60 text-xs">
+                    <div>
+                        <div class="flex justify-between items-center text-[11px] mb-1">
+                            <span class="font-semibold text-blue-900">音量</span>
+                            <span id="vol-display-a" class="font-mono font-bold text-blue-800">100%</span>
+                        </div>
+                        <input type="range" id="vol-range-a" min="0" max="1" step="0.05" value="1.0" oninput="onVolumeChanged('A', this.value)" class="w-full h-1.5 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center text-[11px] mb-1">
+                            <span class="font-semibold text-blue-900">声の高さ</span>
+                            <span id="pitch-display-a" class="font-mono font-bold text-blue-800">1.00</span>
+                        </div>
+                        <input type="range" id="pitch-range-a" min="0.8" max="1.2" step="0.05" value="1.0" oninput="onPitchChanged('A', this.value)" class="w-full h-1.5 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Speaker B Config (Emerald Theme) -->
+            <div class="bg-emerald-50/70 border border-emerald-200 p-4 rounded-xl space-y-3">
+                <div class="flex justify-between items-center">
+                    <span id="modal-speaker-b-title" class="font-bold text-xs text-emerald-800 flex items-center gap-1.5">
+                        <i class="fa-solid fa-user text-emerald-600"></i> 話者 B の設定
+                    </span>
+                    <button onclick="testVoice('B')" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1 rounded-lg transition flex items-center gap-1 shadow-sm">
+                        <i class="fa-solid fa-volume-high text-[10px]"></i> 試聴する
+                    </button>
+                </div>
+
+                <!-- Voice Selection -->
+                <div>
+                    <label class="block text-[11px] font-semibold text-emerald-900 mb-1">音声モデル</label>
+                    <select id="voice-select-b" onchange="onVoiceSelected('B')" class="w-full text-xs p-2 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+
+                <!-- Speed Control -->
+                <div class="space-y-1.5 pt-1">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-bold text-emerald-900 flex items-center gap-1">
+                            <i class="fa-solid fa-gauge-high text-emerald-500"></i> 再生速度:
+                        </span>
+                        <span id="speed-display-b" class="font-black text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200 shadow-sm font-mono text-[11px]">1.00x</span>
+                    </div>
+                    <div class="flex items-center gap-1 justify-between">
+                        <button onclick="setSpeedForSpeaker('B', 0.5)" class="speed-btn-b flex-1 py-0.5 text-[10px] font-bold rounded border transition border-emerald-200 bg-white hover:bg-emerald-100 text-emerald-800" data-speed="0.5">0.5x</button>
+                        <button onclick="setSpeedForSpeaker('B', 0.75)" class="speed-btn-b flex-1 py-0.5 text-[10px] font-bold rounded border transition border-emerald-200 bg-white hover:bg-emerald-100 text-emerald-800" data-speed="0.75">0.75x</button>
+                        <button onclick="setSpeedForSpeaker('B', 1.0)" class="speed-btn-b flex-1 py-0.5 text-[10px] font-bold rounded border transition border-emerald-500 bg-emerald-600 text-white" data-speed="1.0">1.0x</button>
+                        <button onclick="setSpeedForSpeaker('B', 1.25)" class="speed-btn-b flex-1 py-0.5 text-[10px] font-bold rounded border transition border-emerald-200 bg-white hover:bg-emerald-100 text-emerald-800" data-speed="1.25">1.25x</button>
+                        <button onclick="setSpeedForSpeaker('B', 1.5)" class="speed-btn-b flex-1 py-0.5 text-[10px] font-bold rounded border transition border-emerald-200 bg-white hover:bg-emerald-100 text-emerald-800" data-speed="1.5">1.5x</button>
+                    </div>
+                    <input type="range" id="speed-range-b" min="0.5" max="2.0" step="0.05" value="1.0" oninput="setSpeedForSpeaker('B', this.value)" class="w-full h-1.5 bg-emerald-200 rounded-lg appearance-none cursor-pointer accent-emerald-600">
+                </div>
+
+                <!-- Volume & Pitch Sliders in 2 Columns -->
+                <div class="grid grid-cols-2 gap-3 pt-1 border-t border-emerald-200/60 text-xs">
+                    <div>
+                        <div class="flex justify-between items-center text-[11px] mb-1">
+                            <span class="font-semibold text-emerald-900">音量</span>
+                            <span id="vol-display-b" class="font-mono font-bold text-emerald-800">100%</span>
+                        </div>
+                        <input type="range" id="vol-range-b" min="0" max="1" step="0.05" value="1.0" oninput="onVolumeChanged('B', this.value)" class="w-full h-1.5 bg-emerald-200 rounded-lg appearance-none cursor-pointer accent-emerald-600">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center text-[11px] mb-1">
+                            <span class="font-semibold text-emerald-900">声の高さ</span>
+                            <span id="pitch-display-b" class="font-mono font-bold text-emerald-800">1.00</span>
+                        </div>
+                        <input type="range" id="pitch-range-b" min="0.8" max="1.2" step="0.05" value="1.0" oninput="onPitchChanged('B', this.value)" class="w-full h-1.5 bg-emerald-200 rounded-lg appearance-none cursor-pointer accent-emerald-600">
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-2 flex justify-between items-center">
+                <button onclick="closeVoiceModal()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow transition">
+                    設定を完了して閉じる
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-slate-100 border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+        英会話リスニング & シャドーイング プレーヤー &bull; Enhanced HQ Speech Synthesis Engine
+    </footer>
+
+    <script>
+        const defaultScript = {
+            id: 'default_togakushi',
+            title: '戸隠トレラン＆230km挑戦',
+            speakerA: 'Speaker A (Runner)',
+            speakerB: 'Speaker B (Coach)',
+            lines: [
+                {
+                    speaker: 'A',
+                    text: "So, I participated in a trail running race around the Togakushi Ski Resort in Nagano last weekend, and I’d love to tell you about it.",
+                    ja: "先週末、長野県の戸隠スキー場周辺で行われたトレイルランニングの大会に出てきたんですけども、その時のお話をさせてください。"
+                },
+                {
+                    speaker: 'B',
+                    text: "I’d love to hear all about it! How did it go?",
+                    ja: "ぜひ聞かせてください！どうでしたか？"
+                },
+                {
+                    speaker: 'A',
+                    text: "Well, since it’s early September, it was still pretty hot, so I was worried about my stamina. On top of that, it rained until the day before, so the trail was super muddy.",
+                    ja: "まだ9月の始めという暑い時期なので、まずは体力が持つか心配でした。それに加えてレース前日まで雨が降っていて、コースがだいぶぐちゃぐちゃになることが予想されたので、それも心配でした。"
+                },
+                {
+                    speaker: 'B',
+                    text: "Oh, that sounds tough! Did you manage to finish okay?",
+                    ja: "それは大変そうですね！無事に完走できたんでしょうか？"
+                },
+                {
+                    speaker: 'A',
+                    text: "I actually did! And my time was surprisingly good. Honestly, I was a bit worried because I’d been doing Maffetone training since June—running at a very slow pace while keeping my heart rate under 130 bpm, along with limiting carbs. I was nervous about whether I could actually speed up or last through the race.",
+                    ja: "無事に完走できました！しかもタイムは驚くほど良かったです。実は6月からマフェトントレーニングをやらせてもらっていて、炭水化物を控えた上ですごいスローペース（心拍数130以下）で走るトレーニングを続けていたので、スピードが出せるのか、体力が持つか心配でした。"
+                },
+                {
+                    speaker: 'B',
+                    text: "That low-intensity training takes time to show results, so I totally get your anxiety. But your body clearly adapted!",
+                    ja: "低強度のトレーニングは効果が出るまでに時間がかかるので、その不安は本当によくわかります。でも体がしっかり順応したんですね！"
+                },
+                {
+                    speaker: 'A',
+                    text: "Right! I even lost about 4 kg, so I brought a lot of energy gels, but I ended up taking less than half of what I planned. I even had enough energy left to sprint right before the finish line.",
+                    ja: "そうですね！体重も4kgぐらい減ったので補給食（ジェル）をたくさん持っていったのですが、結局予定していた量の半分も食べずに済みました。ゴールラインを切る直前にはダッシュができるくらいの余力もありました。"
+                },
+                {
+                    speaker: 'B',
+                    text: "That means your body became incredibly efficient at burning fat for fuel. Your pacing was spot on!",
+                    ja: "それは体が脂肪をエネルギーとして効率よく燃焼できるようになった証拠ですね！ペース配分も完璧でした。"
+                },
+                {
+                    speaker: 'A',
+                    text: "Thanks. Next up, I have a 230 km ultra-race coming up in early October, so I want to keep this momentum going. But with that kind of distance, I’m wondering what my target heart rate should be.",
+                    ja: "ありがとうございます。次は10月上旬に230kmの超長距離レースがあるので、この勢いを維持したいと思っています。ただ、それほどの距離になると心拍数はどのくらいで走ればいいのか心配です。"
+                },
+                {
+                    speaker: 'B',
+                    text: "For 230 kilometers, staying in Zone 2—around 60 to 70 percent of your maximum heart rate, or roughly 120 to 130 bpm—is ideal. It keeps you in a conversational pace while saving energy.",
+                    ja: "230kmという距離なら、ゾーン2（最大心拍数のおよそ60〜70%、約120〜130bpm）を維持するのが理想的です。エネルギーを節約しつつ、会話ができるペースを保つことができます。"
+                },
+                {
+                    speaker: 'A',
+                    text: "Got it. I’ll aim for Zone 2 and give it my best shot. Thanks for the advice!",
+                    ja: "分かりました。ゾーン2を目指して全力を尽くしてみたいと思います。アドバイスありがとうございます！"
+                },
+                {
+                    speaker: 'B',
+                    text: "Best of luck with your training! You’re going to do great.",
+                    ja: "トレーニング頑張ってください！応援しています！"
+                }
+            ]
+        };
+
+        let scriptsList = [defaultScript];
+        let currentScriptId = defaultScript.id;
+        let activeScript = defaultScript;
+        
+        let currentLineIndex = -1;
+        let singleLoopLineIndex = null;
+        let isPlaying = false;
+        
+        let playbackTimer = null;
+        let speechToken = 0;
+
+        let playCountsMap = {};
+
+        let speedA = 1.0;
+        let speedB = 1.0;
+
+        let volumeA = 1.0;
+        let volumeB = 1.0;
+
+        let hqEnglishVoices = [];
+        let selectedVoiceAURI = '';
+        let selectedVoiceBURI = '';
+        let pitchA = 1.0;
+        let pitchB = 1.0;
+
+        function clearPlaybackTimer() {
+            if (playbackTimer) {
+                clearTimeout(playbackTimer);
+                playbackTimer = null;
+            }
+        }
+
+        function evaluateVoiceQuality(voice) {
+            const name = voice.name.toLowerCase();
+            let score = 0;
+
+            if (name.includes('natural') || name.includes('online')) score += 100;
+            if (name.includes('neural')) score += 90;
+            if (name.includes('enhanced') || name.includes('premium')) score += 80;
+            if (name.includes('google')) score += 70;
+            if (name.includes('samantha') || name.includes('karen') || name.includes('daniel') || name.includes('serena') || name.includes('alex') || name.includes('guy') || name.includes('aria') || name.includes('jenny')) score += 50;
+            if (name.includes('microsoft')) score += 40;
+
+            if (voice.lang === 'en-US') score += 15;
+            if (voice.lang === 'en-GB') score += 10;
+
+            return score;
+        }
+
+        function detectVoiceGender(voice) {
+            const name = voice.name.toLowerCase();
+            
+            const maleNames = ['guy', 'david', 'mark', 'george', 'ryan', 'steffan', 'james', 'daniel', 'alex', 'brian', 'christopher', 'eric', 'male', 'man', 'boy', 'andrew', 'oliver'];
+            const femaleNames = ['jenny', 'aria', 'samantha', 'zira', 'karen', 'serena', 'victoria', 'fiona', 'sora', 'female', 'woman', 'girl', 'ava', 'emma', 'ana', 'michelle', 'clara'];
+
+            for (let m of maleNames) {
+                if (name.includes(m)) return 'male';
+            }
+            for (let f of femaleNames) {
+                if (name.includes(f)) return 'female';
+            }
+            return 'unknown';
+        }
+
+        function loadScriptsFromStorage() {
+            try {
+                const saved = localStorage.getItem('shadowing_player_scripts');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        scriptsList = parsed;
+                    }
+                }
+            } catch (e) {
+                console.warn("Could not load scripts from localStorage:", e);
+            }
+        }
+
+        function saveScriptsToStorage() {
+            try {
+                localStorage.setItem('shadowing_player_scripts', JSON.stringify(scriptsList));
+            } catch (e) {
+                console.warn("Could not save scripts to localStorage:", e);
+            }
+        }
+
+        function loadVoiceSettingsFromStorage() {
+            try {
+                selectedVoiceAURI = localStorage.getItem('shadowing_voice_a_uri') || '';
+                selectedVoiceBURI = localStorage.getItem('shadowing_voice_b_uri') || '';
+                pitchA = parseFloat(localStorage.getItem('shadowing_pitch_a') || '1.0');
+                pitchB = parseFloat(localStorage.getItem('shadowing_pitch_b') || '1.0');
+                volumeA = parseFloat(localStorage.getItem('shadowing_vol_a') || '1.0');
+                volumeB = parseFloat(localStorage.getItem('shadowing_vol_b') || '1.0');
+                speedA = parseFloat(localStorage.getItem('shadowing_speed_a') || '1.0');
+                speedB = parseFloat(localStorage.getItem('shadowing_speed_b') || '1.0');
+            } catch (e) {
+                console.warn("Could not load voice settings from localStorage:", e);
+            }
+        }
+
+        function saveVoiceSettingsToStorage() {
+            try {
+                localStorage.setItem('shadowing_voice_a_uri', selectedVoiceAURI);
+                localStorage.setItem('shadowing_voice_b_uri', selectedVoiceBURI);
+                localStorage.setItem('shadowing_pitch_a', pitchA.toString());
+                localStorage.setItem('shadowing_pitch_b', pitchB.toString());
+                localStorage.setItem('shadowing_vol_a', volumeA.toString());
+                localStorage.setItem('shadowing_vol_b', volumeB.toString());
+                localStorage.setItem('shadowing_speed_a', speedA.toString());
+                localStorage.setItem('shadowing_speed_b', speedB.toString());
+            } catch (e) {
+                console.warn("Could not save voice settings to localStorage:", e);
+            }
+        }
+
+        function loadPlayCountsFromStorage() {
+            try {
+                const saved = localStorage.getItem('shadowing_play_counts');
+                if (saved) {
+                    playCountsMap = JSON.parse(saved);
+                }
+            } catch (e) {
+                console.warn("Could not load play counts from localStorage:", e);
+            }
+        }
+
+        function savePlayCountsToStorage() {
+            try {
+                localStorage.setItem('shadowing_play_counts', JSON.stringify(playCountsMap));
+            } catch (e) {
+                console.warn("Could not save play counts to localStorage:", e);
+            }
+        }
+
+        function getLinePlayCount(scriptId, lineIdx) {
+            if (!playCountsMap[scriptId]) return 0;
+            return playCountsMap[scriptId][lineIdx] || 0;
+        }
+
+        function incrementLinePlayCount(lineIdx) {
+            if (!currentScriptId) return;
+            if (!playCountsMap[currentScriptId]) {
+                playCountsMap[currentScriptId] = {};
+            }
+            const newCount = (playCountsMap[currentScriptId][lineIdx] || 0) + 1;
+            playCountsMap[currentScriptId][lineIdx] = newCount;
+            savePlayCountsToStorage();
+
+            const countEl = document.getElementById(`line-count-${lineIdx}`);
+            if (countEl) {
+                countEl.textContent = newCount;
+                countEl.classList.add('text-indigo-600', 'font-black');
+                setTimeout(() => {
+                    countEl.classList.remove('text-indigo-600', 'font-black');
+                }, 300);
+            }
+        }
+
+        function resetPlayCounts() {
+            if (!currentScriptId) return;
+            playCountsMap[currentScriptId] = {};
+            savePlayCountsToStorage();
+            if (activeScript && activeScript.lines) {
+                activeScript.lines.forEach((_, idx) => {
+                    const countEl = document.getElementById(`line-count-${idx}`);
+                    if (countEl) countEl.textContent = '0';
+                });
+            }
+        }
+
+        function setSpeedForSpeaker(speaker, speed) {
+            const val = parseFloat(speed);
+            if (speaker === 'A') {
+                speedA = val;
+                const display = document.getElementById('speed-display-a');
+                if (display) display.textContent = `${speedA.toFixed(2)}x`;
+                const slider = document.getElementById('speed-range-a');
+                if (slider) slider.value = speedA;
+
+                document.querySelectorAll('.speed-btn-a').forEach(btn => {
+                    const bSpeed = parseFloat(btn.dataset.speed);
+                    if (Math.abs(bSpeed - speedA) < 0.01) {
+                        btn.className = "speed-btn-a flex-1 py-0.5 text-[10px] font-bold rounded border transition border-blue-500 bg-blue-600 text-white";
+                    } else {
+                        btn.className = "speed-btn-a flex-1 py-0.5 text-[10px] font-bold rounded border transition border-blue-200 bg-white hover:bg-blue-100 text-blue-800";
+                    }
+                });
+            } else {
+                speedB = val;
+                const display = document.getElementById('speed-display-b');
+                if (display) display.textContent = `${speedB.toFixed(2)}x`;
+                const slider = document.getElementById('speed-range-b');
+                if (slider) slider.value = speedB;
+
+                document.querySelectorAll('.speed-btn-b').forEach(btn => {
+                    const bSpeed = parseFloat(btn.dataset.speed);
+                    if (Math.abs(bSpeed - speedB) < 0.01) {
+                        btn.className = "speed-btn-b flex-1 py-0.5 text-[10px] font-bold rounded border transition border-emerald-500 bg-emerald-600 text-white";
+                    } else {
+                        btn.className = "speed-btn-b flex-1 py-0.5 text-[10px] font-bold rounded border transition border-emerald-200 bg-white hover:bg-emerald-100 text-emerald-800";
+                    }
+                });
+            }
+            saveVoiceSettingsToStorage();
+            updateHeaderSpeedBadge();
+            if (isPlaying && currentLineIndex >= 0) {
+                speakCurrentLine();
+            }
+        }
+
+        function setMasterSpeed(speed) {
+            setSpeedForSpeaker('A', speed);
+            setSpeedForSpeaker('B', speed);
+        }
+
+        function updateHeaderSpeedBadge() {
+            const badge = document.getElementById('speed-badge-text');
+            if (badge) {
+                badge.textContent = `A:${speedA.toFixed(2)}x / B:${speedB.toFixed(2)}x`;
+            }
+        }
+
+        function populateScriptSelector() {
+            const selectEl = document.getElementById('script-select');
+            if (!selectEl) return;
+            selectEl.innerHTML = '';
+
+            scriptsList.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.title;
+                if (s.id === currentScriptId) opt.selected = true;
+                selectEl.appendChild(opt);
+            });
+
+            const badge = document.getElementById('current-script-badge');
+            if (badge && activeScript) {
+                badge.textContent = `スクリプト: ${activeScript.title}`;
+            }
+
+            if (activeScript) {
+                const modalTitleA = document.getElementById('modal-speaker-a-title');
+                const modalTitleB = document.getElementById('modal-speaker-b-title');
+                if (modalTitleA) modalTitleA.innerHTML = `<i class="fa-solid fa-user text-blue-600"></i> ${activeScript.speakerA || '話者 A'} の設定`;
+                if (modalTitleB) modalTitleB.innerHTML = `<i class="fa-solid fa-user text-emerald-600"></i> ${activeScript.speakerB || '話者 B'} の設定`;
+            }
+        }
+
+        function initVoiceEngines() {
+            if (!('speechSynthesis' in window)) return;
+
+            const voices = window.speechSynthesis.getVoices();
+            if (!voices || voices.length === 0) return;
+
+            let englishVoices = voices.filter(v => v.lang.startsWith('en') || v.lang.startsWith('EN'));
+            if (englishVoices.length === 0) englishVoices = voices;
+
+            hqEnglishVoices = englishVoices.filter(v => evaluateVoiceQuality(v) >= 40);
+
+            if (hqEnglishVoices.length === 0) {
+                hqEnglishVoices = englishVoices;
+            }
+
+            hqEnglishVoices.sort((a, b) => evaluateVoiceQuality(b) - evaluateVoiceQuality(a));
+
+            const selectA = document.getElementById('voice-select-a');
+            const selectB = document.getElementById('voice-select-b');
+
+            if (!selectA || !selectB) return;
+
+            selectA.innerHTML = '';
+            selectB.innerHTML = '';
+
+            hqEnglishVoices.forEach(v => {
+                const gender = detectVoiceGender(v);
+                let genderLabel = '';
+                if (gender === 'male') genderLabel = '👨 [男性/Male] ';
+                else if (gender === 'female') genderLabel = '👩 [女性/Female] ';
+                else genderLabel = '🎙️ [Voice] ';
+
+                const optA = document.createElement('option');
+                optA.value = v.voiceURI;
+                optA.textContent = `${genderLabel}${v.name} (${v.lang})`;
+
+                const optB = document.createElement('option');
+                optB.value = v.voiceURI;
+                optB.textContent = `${genderLabel}${v.name} (${v.lang})`;
+
+                selectA.appendChild(optA);
+                selectB.appendChild(optB);
+            });
+
+            if (selectedVoiceAURI && getVoiceByURI(selectedVoiceAURI)) {
+                selectA.value = selectedVoiceAURI;
+            } else if (hqEnglishVoices.length > 0) {
+                const maleVoice = hqEnglishVoices.find(v => detectVoiceGender(v) === 'male');
+                selectedVoiceAURI = maleVoice ? maleVoice.voiceURI : hqEnglishVoices[0].voiceURI;
+                selectA.value = selectedVoiceAURI;
+            }
+
+            if (selectedVoiceBURI && getVoiceByURI(selectedVoiceBURI)) {
+                selectB.value = selectedVoiceBURI;
+            } else if (hqEnglishVoices.length > 0) {
+                const femaleVoice = hqEnglishVoices.find(v => detectVoiceGender(v) === 'female' && v.voiceURI !== selectedVoiceAURI);
+                if (femaleVoice) {
+                    selectedVoiceBURI = femaleVoice.voiceURI;
+                } else if (hqEnglishVoices.length > 1) {
+                    selectedVoiceBURI = hqEnglishVoices[1].voiceURI;
+                } else {
+                    selectedVoiceBURI = hqEnglishVoices[0].voiceURI;
+                }
+                selectB.value = selectedVoiceBURI;
+            }
+
+            const pRangeA = document.getElementById('pitch-range-a');
+            if (pRangeA) pRangeA.value = pitchA;
+            const pDispA = document.getElementById('pitch-display-a');
+            if (pDispA) pDispA.textContent = pitchA.toFixed(2);
+
+            const pRangeB = document.getElementById('pitch-range-b');
+            if (pRangeB) pRangeB.value = pitchB;
+            const pDispB = document.getElementById('pitch-display-b');
+            if (pDispB) pDispB.textContent = pitchB.toFixed(2);
+
+            const vRangeA = document.getElementById('vol-range-a');
+            if (vRangeA) vRangeA.value = volumeA;
+            const vDispA = document.getElementById('vol-display-a');
+            if (vDispA) vDispA.textContent = `${Math.round(volumeA * 100)}%`;
+
+            const vRangeB = document.getElementById('vol-range-b');
+            if (vRangeB) vRangeB.value = volumeB;
+            const vDispB = document.getElementById('vol-display-b');
+            if (vDispB) vDispB.textContent = `${Math.round(volumeB * 100)}%`;
+
+            setSpeedForSpeaker('A', speedA);
+            setSpeedForSpeaker('B', speedB);
+        }
+
+        function getVoiceByURI(uri) {
+            if (!uri) return null;
+            return hqEnglishVoices.find(v => v.voiceURI === uri) || window.speechSynthesis.getVoices().find(v => v.voiceURI === uri) || null;
+        }
+
+        function onVoiceSelected(speaker) {
+            if (speaker === 'A') {
+                const selA = document.getElementById('voice-select-a');
+                if (selA) selectedVoiceAURI = selA.value;
+            } else {
+                const selB = document.getElementById('voice-select-b');
+                if (selB) selectedVoiceBURI = selB.value;
+            }
+            saveVoiceSettingsToStorage();
+        }
+
+        function onPitchChanged(speaker, val) {
+            const numericVal = parseFloat(val);
+            if (speaker === 'A') {
+                pitchA = numericVal;
+                const disp = document.getElementById('pitch-display-a');
+                if (disp) disp.textContent = pitchA.toFixed(2);
+            } else {
+                pitchB = numericVal;
+                const disp = document.getElementById('pitch-display-b');
+                if (disp) disp.textContent = pitchB.toFixed(2);
+            }
+            saveVoiceSettingsToStorage();
+        }
+
+        function onVolumeChanged(speaker, val) {
+            const numericVal = parseFloat(val);
+            if (speaker === 'A') {
+                volumeA = numericVal;
+                const disp = document.getElementById('vol-display-a');
+                if (disp) disp.textContent = `${Math.round(volumeA * 100)}%`;
+            } else {
+                volumeB = numericVal;
+                const disp = document.getElementById('vol-display-b');
+                if (disp) disp.textContent = `${Math.round(volumeB * 100)}%`;
+            }
+            saveVoiceSettingsToStorage();
+
+            if (isPlaying && currentLineIndex >= 0) {
+                speakCurrentLine();
+            }
+        }
+
+        function testVoice(speaker) {
+            if (!('speechSynthesis' in window)) return;
+            clearPlaybackTimer();
+            speechToken++;
+            window.speechSynthesis.cancel();
+
+            const isA = speaker === 'A';
+            const targetURI = isA ? selectedVoiceAURI : selectedVoiceBURI;
+            const targetPitch = isA ? pitchA : pitchB;
+            const targetVol = isA ? volumeA : volumeB;
+            const targetSpeed = isA ? speedA : speedB;
+
+            const matchedVoice = getVoiceByURI(targetURI);
+            const gender = matchedVoice ? detectVoiceGender(matchedVoice) : 'unknown';
+            const genderStr = gender === 'male' ? 'Male voice' : (gender === 'female' ? 'Female voice' : 'Voice');
+
+            const name = isA ? (activeScript.speakerA || 'Speaker A') : (activeScript.speakerB || 'Speaker B');
+            const testText = `Hello! This is ${name} using a high quality ${genderStr}.`;
+            const utterance = new SpeechSynthesisUtterance(testText);
+            utterance.rate = targetSpeed;
+            utterance.pitch = targetPitch;
+            utterance.volume = targetVol;
+
+            if (matchedVoice) {
+                utterance.voice = matchedVoice;
+                utterance.lang = matchedVoice.lang;
+            } else {
+                utterance.lang = 'en-US';
+            }
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadScriptsFromStorage();
+            loadVoiceSettingsFromStorage();
+            loadPlayCountsFromStorage();
+            
+            activeScript = scriptsList.find(s => s.id === currentScriptId) || scriptsList[0] || defaultScript;
+            currentScriptId = activeScript.id;
+
+            populateScriptSelector();
+            renderScriptContent();
+            initVoiceEngines();
+            
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.onvoiceschanged = initVoiceEngines;
+                setTimeout(initVoiceEngines, 300);
+            }
+        });
+
+        function switchScript(scriptId) {
+            stopPlayback();
+            currentScriptId = scriptId;
+            activeScript = scriptsList.find(s => s.id === scriptId) || defaultScript;
+            currentLineIndex = -1;
+            singleLoopLineIndex = null;
+            populateScriptSelector();
+            renderScriptContent();
+            updateModeBannerUI();
+            updateProgressUI();
+        }
+
+        function renderScriptContent() {
+            const container = document.getElementById('script-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const toggleJaEl = document.getElementById('toggle-ja');
+            const showJa = toggleJaEl ? toggleJaEl.checked : true;
+
+            activeScript.lines.forEach((line, index) => {
+                const isSpeakerA = line.speaker === 'A';
+                const speakerName = isSpeakerA ? (activeScript.speakerA || 'Speaker A') : (activeScript.speakerB || 'Speaker B');
+                const badgeClass = isSpeakerA ? 'speaker-a-badge' : 'speaker-b-badge';
+                const count = getLinePlayCount(currentScriptId, index);
+
+                const card = document.createElement('div');
+                card.id = `line-card-${index}`;
+                card.onclick = () => onSentenceClick(index);
+                card.className = `bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm transition-all duration-200 cursor-pointer hover:border-indigo-400 space-y-2 relative overflow-hidden`;
+
+                card.innerHTML = `
+                    <div class="flex flex-wrap justify-between items-center text-xs gap-2">
+                        <span class="px-2.5 py-0.5 rounded-full font-bold text-[11px] ${badgeClass}">
+                            <i class="fa-solid fa-user text-[10px] mr-1"></i> ${speakerName}
+                        </span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200 flex items-center gap-1" title="この行の累計再生回数">
+                                <i class="fa-solid fa-headphones text-[10px] text-indigo-500"></i> <span id="line-count-${index}" class="transition-all duration-200">${count}</span>回
+                            </span>
+                            <span id="loop-indicator-${index}" class="hidden text-[10px] font-bold bg-amber-500 text-white px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+                                <i class="fa-solid fa-repeat"></i> この行をリピート再生中
+                            </span>
+                            <span class="text-slate-400 font-mono text-[11px]">#${index + 1}</span>
+                            <button onclick="event.stopPropagation(); onSentenceClick(${index});" class="w-7 h-7 rounded-full bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-600 flex items-center justify-center transition" title="この行をリピート再生">
+                                <i class="fa-solid fa-play text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-base sm:text-lg font-extrabold text-slate-800 leading-relaxed tracking-wide">
+                        ${line.text}
+                    </p>
+                    <p class="line-ja text-xs sm:text-sm font-semibold text-slate-500 border-t border-slate-100 pt-2 ${showJa ? '' : 'hidden'}">
+                        ${line.ja || ''}
+                    </p>
+                `;
+
+                container.appendChild(card);
+            });
+
+            updateProgressUI();
+        }
+
+        function onSentenceClick(index) {
+            if (singleLoopLineIndex === index) {
+                singleLoopLineIndex = null;
+                updateModeBannerUI();
+                highlightLineCard(currentLineIndex);
+                if (isPlaying) {
+                    speakCurrentLine();
+                } else {
+                    isPlaying = true;
+                    updatePlayButtonUI();
+                    speakCurrentLine();
+                }
+                return;
+            }
+
+            singleLoopLineIndex = index;
+            currentLineIndex = index;
+            isPlaying = true;
+
+            updatePlayButtonUI();
+            updateModeBannerUI();
+            speakCurrentLine();
+        }
+
+        function clearSingleRepeat() {
+            singleLoopLineIndex = null;
+            updateModeBannerUI();
+            highlightLineCard(currentLineIndex);
+            if (isPlaying) {
+                speakCurrentLine();
+            } else {
+                startPlayback();
+            }
+        }
+
+        function toggleJapaneseDisplay() {
+            const toggleJa = document.getElementById('toggle-ja');
+            const showJa = toggleJa ? toggleJa.checked : true;
+            const jaElements = document.querySelectorAll('.line-ja');
+            jaElements.forEach(el => {
+                if (showJa) el.classList.remove('hidden');
+                else el.classList.add('hidden');
+            });
+        }
+
+        function togglePlayPause() {
+            if (isPlaying) {
+                pausePlayback();
+            } else {
+                if (currentLineIndex < 0 || currentLineIndex >= activeScript.lines.length) {
+                    currentLineIndex = 0;
+                }
+                startPlayback();
+            }
+        }
+
+        function startPlayback() {
+            isPlaying = true;
+            updatePlayButtonUI();
+            speakCurrentLine();
+        }
+
+        function pausePlayback() {
+            isPlaying = false;
+            clearPlaybackTimer();
+            speechToken++;
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+            updatePlayButtonUI();
+        }
+
+        function stopPlayback() {
+            isPlaying = false;
+            clearPlaybackTimer();
+            speechToken++;
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+            currentLineIndex = -1;
+            singleLoopLineIndex = null;
+            highlightLineCard(-1);
+            updatePlayButtonUI();
+            updateModeBannerUI();
+            updateProgressUI();
+        }
+
+        function updatePlayButtonUI() {
+            const btnText = document.getElementById('play-text');
+            const playIcon = document.getElementById('play-icon');
+            if (btnText) {
+                btnText.textContent = isPlaying ? "一時停止" : (currentLineIndex >= 0 ? "再生再開" : "最初から再生");
+            }
+            if (playIcon) {
+                playIcon.className = isPlaying ? "fa-solid fa-pause" : "fa-solid fa-play";
+            }
+        }
+
+        function updateModeBannerUI() {
+            const banner = document.getElementById('mode-status-banner');
+            const icon = document.getElementById('mode-icon');
+            const desc = document.getElementById('mode-description');
+            const resetBtn = document.getElementById('mode-reset-btn');
+
+            if (!banner) return;
+
+            if (singleLoopLineIndex !== null && singleLoopLineIndex >= 0) {
+                banner.className = "flex items-center justify-between bg-amber-50 border border-amber-300 rounded-xl px-3.5 py-2 text-xs font-semibold text-amber-900 transition-all shadow-sm";
+                if (icon) icon.className = "fa-solid fa-arrows-to-circle text-amber-600 text-sm animate-spin";
+                if (desc) desc.textContent = `行 #${singleLoopLineIndex + 1} を単一行リピート再生中`;
+                if (resetBtn) {
+                    resetBtn.classList.remove('hidden');
+                    resetBtn.classList.add('flex');
+                }
+            } else {
+                banner.className = "flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-indigo-900 transition-all";
+                if (icon) icon.className = "fa-solid fa-repeat text-indigo-600 text-sm";
+                if (desc) desc.textContent = "会話全体をループ再生中（行をクリックするとその行だけリピートします）";
+                if (resetBtn) {
+                    resetBtn.classList.add('hidden');
+                    resetBtn.classList.remove('flex');
+                }
+            }
+        }
+
+        function speakCurrentLine() {
+            if (!('speechSynthesis' in window)) return;
+
+            clearPlaybackTimer();
+            speechToken++;
+            const currentToken = speechToken;
+
+            if (window.speechSynthesis.paused) {
+                window.speechSynthesis.resume();
+            }
+
+            window.speechSynthesis.cancel();
+
+            if (currentLineIndex < 0 || currentLineIndex >= activeScript.lines.length) {
+                currentLineIndex = 0;
+            }
+
+            const currentLine = activeScript.lines[currentLineIndex];
+            highlightLineCard(currentLineIndex);
+            updateProgressUI();
+            incrementLinePlayCount(currentLineIndex);
+
+            const isSpeakerA = currentLine.speaker === 'A';
+            const targetURI = isSpeakerA ? selectedVoiceAURI : selectedVoiceBURI;
+            const targetPitch = isSpeakerA ? pitchA : pitchB;
+            const targetVol = isSpeakerA ? volumeA : volumeB;
+            const targetSpeed = isSpeakerA ? speedA : speedB;
+
+            const utterance = new SpeechSynthesisUtterance(currentLine.text);
+            utterance.rate = targetSpeed;
+            utterance.pitch = targetPitch;
+            utterance.volume = targetVol;
+            utterance.lang = 'en-US';
+
+            const matchedVoice = getVoiceByURI(targetURI);
+            if (matchedVoice) {
+                utterance.voice = matchedVoice;
+                utterance.lang = matchedVoice.lang;
+            }
+
+            utterance.onend = () => {
+                if (!isPlaying || currentToken !== speechToken) return;
+
+                clearPlaybackTimer();
+
+                if (singleLoopLineIndex !== null && singleLoopLineIndex >= 0) {
+                    currentLineIndex = singleLoopLineIndex;
+                    playbackTimer = setTimeout(() => {
+                        if (isPlaying && currentToken === speechToken) {
+                            speakCurrentLine();
+                        }
+                    }, 250);
+                } else {
+                    if (currentLineIndex + 1 < activeScript.lines.length) {
+                        currentLineIndex++;
+                    } else {
+                        currentLineIndex = 0;
+                    }
+                    playbackTimer = setTimeout(() => {
+                        if (isPlaying && currentToken === speechToken) {
+                            speakCurrentLine();
+                        }
+                    }, 350);
+                }
+            };
+
+            utterance.onerror = (event) => {
+                if (event.error === 'interrupted' || event.error === 'canceled') {
+                    return;
+                }
+                console.warn("Speech synthesis notice:", event.error || event);
+            };
+
+            playbackTimer = setTimeout(() => {
+                if (isPlaying && currentToken === speechToken) {
+                    window.speechSynthesis.speak(utterance);
+                }
+            }, 60);
+        }
+
+        function highlightLineCard(index) {
+            document.querySelectorAll('#script-container > div').forEach((card, idx) => {
+                const loopBadge = document.getElementById(`loop-indicator-${idx}`);
+
+                if (idx === index) {
+                    if (singleLoopLineIndex === idx) {
+                        card.className = `bg-amber-50/90 rounded-2xl p-4 sm:p-5 border border-amber-300 shadow-sm transition-all duration-200 cursor-pointer space-y-2 relative overflow-hidden single-repeat-line`;
+                        if (loopBadge) loopBadge.classList.remove('hidden');
+                    } else {
+                        card.className = `bg-indigo-50/90 rounded-2xl p-4 sm:p-5 border border-indigo-300 shadow-sm transition-all duration-200 cursor-pointer space-y-2 relative overflow-hidden active-line`;
+                        if (loopBadge) loopBadge.classList.add('hidden');
+                    }
+
+                    const autoscrollToggle = document.getElementById('toggle-autoscroll');
+                    if (autoscrollToggle && autoscrollToggle.checked) {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                } else {
+                    card.className = `bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm transition-all duration-200 cursor-pointer hover:border-indigo-400 space-y-2 relative overflow-hidden`;
+                    if (loopBadge) loopBadge.classList.add('hidden');
+                }
+            });
+        }
+
+        function updateProgressUI() {
+            const total = activeScript ? activeScript.lines.length : 0;
+            const currentDisplay = currentLineIndex >= 0 ? currentLineIndex + 1 : 0;
+            const progressInd = document.getElementById('progress-indicator');
+            if (progressInd) progressInd.textContent = `行 ${currentDisplay} / ${total}`;
+
+            const pct = total > 0 ? (currentDisplay / total) * 100 : 0;
+            const fill = document.getElementById('progress-bar-fill');
+            if (fill) fill.style.width = `${pct}%`;
+        }
+
+        function resetPlayback() {
+            stopPlayback();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function openScriptModal() {
+            const titleInput = document.getElementById('modal-script-title');
+            if (titleInput) titleInput.value = '';
+            const textInput = document.getElementById('modal-script-text');
+            if (textInput) textInput.value = '';
+            const spkA = document.getElementById('modal-speaker-a');
+            if (spkA) spkA.value = 'Speaker A';
+            const spkB = document.getElementById('modal-speaker-b');
+            if (spkB) spkB.value = 'Speaker B';
+            const fileUpload = document.getElementById('file-upload-input');
+            if (fileUpload) fileUpload.value = '';
+            const msgEl = document.getElementById('file-import-msg');
+            if (msgEl) msgEl.classList.add('hidden');
+
+            const modal = document.getElementById('script-modal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeScriptModal() {
+            const modal = document.getElementById('script-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function handleFileImport(event) {
+            const file = event.target.files[0];
+            if (file) {
+                processImportedFile(file);
+            }
+        }
+
+        function handleFileDrop(event) {
+            event.preventDefault();
+            const zone = document.getElementById('file-drop-zone');
+            if (zone) {
+                zone.classList.remove('border-indigo-500', 'bg-indigo-100/50');
+            }
+
+            if (event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+                const file = event.dataTransfer.files[0];
+                processImportedFile(file);
+            }
+        }
+
+        function processImportedFile(file) {
+            if (!file) return;
+
+            const fileName = file.name.replace(/\.[^/.]+$/, "");
+            const titleInput = document.getElementById('modal-script-title');
+            if (titleInput) titleInput.value = fileName;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const textContent = e.target.result;
+                autoParseAndPopulateScript(textContent);
+
+                const msgEl = document.getElementById('file-import-msg');
+                const msgText = document.getElementById('file-import-msg-text');
+                if (msgEl && msgText) {
+                    msgText.textContent = `ファイル「${file.name}」を取り込み、話者を自動仕訳しました。`;
+                    msgEl.classList.remove('hidden');
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function autoParseAndPopulateScript(rawText) {
+            if (!rawText || !rawText.trim()) return;
+
+            const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+            const speakerRegex = /^([^\:：]+?)[\:：]\s*(.*)$/;
+            
+            const discoveredSpeakers = [];
+            const formattedLines = [];
+
+            lines.forEach(lineStr => {
+                const match = lineStr.match(speakerRegex);
+                if (match) {
+                    const rawSpeaker = match[1].trim();
+                    const textPart = match[2].trim();
+
+                    let speakerIndex = discoveredSpeakers.indexOf(rawSpeaker);
+                    if (speakerIndex === -1) {
+                        discoveredSpeakers.push(rawSpeaker);
+                        speakerIndex = discoveredSpeakers.length - 1;
+                    }
+
+                    const speakerTag = (speakerIndex % 2 === 0) ? 'A' : 'B';
+                    formattedLines.push(`${speakerTag}: ${textPart}`);
+                } else {
+                    formattedLines.push(lineStr);
+                }
+            });
+
+            const inputA = document.getElementById('modal-speaker-a');
+            if (inputA) {
+                inputA.value = discoveredSpeakers.length >= 1 ? discoveredSpeakers[0] : 'Speaker A';
+            }
+
+            const inputB = document.getElementById('modal-speaker-b');
+            if (inputB) {
+                inputB.value = discoveredSpeakers.length >= 2 ? discoveredSpeakers[1] : 'Speaker B';
+            }
+
+            const areaText = document.getElementById('modal-script-text');
+            if (areaText) {
+                areaText.value = formattedLines.join('\n');
+            }
+        }
+
+        function openDeleteModal() {
+            if (!activeScript) return;
+
+            const msgEl = document.getElementById('delete-modal-msg');
+            const noticeEl = document.getElementById('delete-error-notice');
+            const confirmBtn = document.getElementById('btn-confirm-delete');
+
+            if (msgEl) {
+                msgEl.textContent = `スクリプト「${activeScript.title}」を削除してもよろしいですか？`;
+            }
+
+            if (scriptsList.length <= 1) {
+                if (noticeEl) noticeEl.classList.remove('hidden');
+                if (confirmBtn) confirmBtn.classList.add('hidden');
+            } else {
+                if (noticeEl) noticeEl.classList.add('hidden');
+                if (confirmBtn) confirmBtn.classList.remove('hidden');
+            }
+
+            const delModal = document.getElementById('delete-modal');
+            if (delModal) delModal.classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            const delModal = document.getElementById('delete-modal');
+            if (delModal) delModal.classList.add('hidden');
+        }
+
+        function confirmDeleteCurrentScript() {
+            if (scriptsList.length <= 1) return;
+
+            stopPlayback();
+
+            const targetId = currentScriptId;
+            scriptsList = scriptsList.filter(s => s.id !== targetId);
+
+            if (playCountsMap[targetId]) {
+                delete playCountsMap[targetId];
+                savePlayCountsToStorage();
+            }
+
+            saveScriptsToStorage();
+            closeDeleteModal();
+
+            const nextScript = scriptsList[0];
+            switchScript(nextScript.id);
+        }
+
+        function openEditScriptModal() {
+            if (!activeScript) return;
+
+            const titleInput = document.getElementById('edit-modal-title');
+            const speakerAInput = document.getElementById('edit-modal-speaker-a');
+            const speakerBInput = document.getElementById('edit-modal-speaker-b');
+
+            if (titleInput) titleInput.value = activeScript.title || '';
+            if (speakerAInput) speakerAInput.value = activeScript.speakerA || 'Speaker A';
+            if (speakerBInput) speakerBInput.value = activeScript.speakerB || 'Speaker B';
+
+            const modal = document.getElementById('edit-script-modal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeEditScriptModal() {
+            const modal = document.getElementById('edit-script-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function saveEditedScriptInfo() {
+            if (!activeScript) return;
+
+            const titleInput = document.getElementById('edit-modal-title');
+            const speakerAInput = document.getElementById('edit-modal-speaker-a');
+            const speakerBInput = document.getElementById('edit-modal-speaker-b');
+
+            const newTitle = titleInput ? titleInput.value.trim() : '';
+            if (!newTitle) return;
+
+            activeScript.title = newTitle;
+            activeScript.speakerA = speakerAInput && speakerAInput.value.trim() ? speakerAInput.value.trim() : 'Speaker A';
+            activeScript.speakerB = speakerBInput && speakerBInput.value.trim() ? speakerBInput.value.trim() : 'Speaker B';
+
+            saveScriptsToStorage();
+            populateScriptSelector();
+            renderScriptContent();
+            closeEditScriptModal();
+        }
+
+        function openVoiceModal() {
+            const modal = document.getElementById('voice-modal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeVoiceModal() {
+            const modal = document.getElementById('voice-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function insertSampleScriptText() {
+            const titleEl = document.getElementById('modal-script-title');
+            if (titleEl) titleEl.value = "ホテルでのチェックイン会話";
+            const spkA = document.getElementById('modal-speaker-a');
+            if (spkA) spkA.value = "Guest";
+            const spkB = document.getElementById('modal-speaker-b');
+            if (spkB) spkB.value = "Receptionist";
+            const scriptText = document.getElementById('modal-script-text');
+            if (scriptText) {
+                scriptText.value = `A: Hello, I have a reservation under the name of Smith. | こんにちは、スミスの名前で予約しています。
+B: Welcome! Let me check that for you right away. | いらっしゃいませ！すぐに確認いたします。
+A: Great, thank you. Is breakfast included in the package? | ありがとうございます。朝食はプランに含まれていますか？
+B: Yes, breakfast is served from 7 to 10 AM on the second floor. | はい、朝食は2階で午前7時から10時まで提供しております。`;
+            }
+        }
+
+        function saveCustomScript() {
+            const titleEl = document.getElementById('modal-script-title');
+            const title = titleEl ? titleEl.value.trim() : '';
+
+            const spkA = document.getElementById('modal-speaker-a');
+            const speakerA = (spkA && spkA.value.trim()) ? spkA.value.trim() : 'Speaker A';
+
+            const spkB = document.getElementById('modal-speaker-b');
+            const speakerB = (spkB && spkB.value.trim()) ? spkB.value.trim() : 'Speaker B';
+
+            const textEl = document.getElementById('modal-script-text');
+            const rawText = textEl ? textEl.value.trim() : '';
+
+            if (!title || !rawText) {
+                return;
+            }
+
+            const rawLines = rawText.split(/\r?\n/);
+            const parsedLines = [];
+
+            rawLines.forEach(lineStr => {
+                if (!lineStr.trim()) return;
+
+                let speaker = 'A';
+                let content = lineStr.trim();
+
+                if (content.startsWith('B:') || content.startsWith('Speaker B:') || content.startsWith('b:')) {
+                    speaker = 'B';
+                    content = content.replace(/^.*?:/, '').trim();
+                } else if (content.startsWith('A:') || content.startsWith('Speaker A:') || content.startsWith('a:')) {
+                    speaker = 'A';
+                    content = content.replace(/^.*?:/, '').trim();
+                }
+
+                let enText = content;
+                let jaText = '';
+                if (content.includes('|')) {
+                    const parts = content.split('|');
+                    enText = parts[0].trim();
+                    jaText = parts[1].trim();
+                }
+
+                if (enText) {
+                    parsedLines.push({
+                        speaker: speaker,
+                        text: enText,
+                        ja: jaText
+                    });
+                }
+            });
+
+            if (parsedLines.length === 0) {
+                return;
+            }
+
+            const newScript = {
+                id: 'custom_' + Date.now(),
+                title: title,
+                speakerA: speakerA,
+                speakerB: speakerB,
+                lines: parsedLines
+            };
+
+            scriptsList.push(newScript);
+            saveScriptsToStorage();
+            closeScriptModal();
+
+            switchScript(newScript.id);
+        }
+    </script>
+</body>
+</html>
